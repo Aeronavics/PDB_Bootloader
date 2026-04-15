@@ -77,6 +77,4 @@ extern "C" {
 }
 #endif
 
-
-
 #endif /* INC_YMODEM_H_ */

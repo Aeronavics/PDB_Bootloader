@@ -24,8 +24,13 @@
 #define LIBCANARD_MESSAGE_NODE
 #define LIBCANARD_MESSAGE_FIRMWARE_UPGRADE
 
+#define SOFTWARE_VERSION_MAJOR	1
+#define SOFTWARE_VERSION_MINOR	0
+
 #define NO_MAVLINK_ENABLED
 
 #define UART1_ENABLED
+
+#include "gitcommit.h"
 
 #endif /* INC_CONFIG_H_ */

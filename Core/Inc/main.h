@@ -85,8 +85,8 @@ void SystemClock_Config(void);
 #define SPI_CS8_GPIO_Port GPIOD
 #define SPI_CS3_Pin GPIO_PIN_10
 #define SPI_CS3_GPIO_Port GPIOD
-#define TailLight_EN_Pin GPIO_PIN_15
-#define TailLight_EN_GPIO_Port GPIOA
+#define TailLight_Pin GPIO_PIN_15
+#define TailLight_GPIO_Port GPIOA
 #define SPI_CS2_Pin GPIO_PIN_0
 #define SPI_CS2_GPIO_Port GPIOD
 #define SPI_CS1_Pin GPIO_PIN_1

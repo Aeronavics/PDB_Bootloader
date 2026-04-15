@@ -152,7 +152,7 @@ int main(void)
             {
                 if (drivers[i] != nullptr) drivers[i]->sync_update_1Hz();
             }
-            HAL_GPIO_TogglePin(STATUS1_GPIO_Port, STATUS1_Pin);
+            HAL_GPIO_TogglePin(STATUS3_GPIO_Port, STATUS3_Pin);
 
             bool are_drivers_init = false;
             bool are_drivers_normal = false;

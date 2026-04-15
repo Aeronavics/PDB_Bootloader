@@ -18,8 +18,6 @@ extern "C" {
     /* Includes ------------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
 
-#include "main.h"
-
     /* Exported types ------------------------------------------------------------*/
     /* Exported constants --------------------------------------------------------*/
 
@@ -195,7 +193,7 @@ extern "C" {
                                     OB_WRP_PAGES16TO17 | OB_WRP_PAGES18TO19 | OB_WRP_PAGES20TO21 | OB_WRP_PAGES22TO23 | \
                                     OB_WRP_PAGES24TO25 | OB_WRP_PAGES26TO27 | OB_WRP_PAGES28TO29 | OB_WRP_PAGES30TO31 | \
                                     OB_WRP_PAGES32TO33 | OB_WRP_PAGES34TO35 | OB_WRP_PAGES36TO37 | OB_WRP_PAGES38TO39  )
-//#define FLASH_PAGE_TO_BE_PROTECTED (WRPAREA_BANK1_AREAA | WRPAREA_BANK1_AREAB)
+// #define FLASH_PAGE_TO_BE_PROTECTED (WRPAREA_BANK1_AREAA | WRPAREA_BANK1_AREAB)
 
 
     /* Exported macro ------------------------------------------------------------*/

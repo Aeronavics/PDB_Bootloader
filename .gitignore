@@ -44,3 +44,6 @@ Release
 .settings
 
 .vscode/
+
+# ignore generated git hash file
+gitcommit.h

@@ -56,17 +56,17 @@ void MX_GPIO_Init(void)
                           |ERROR1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, Payload_EN_VBatt_Pin|Payload_EN_5V_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, Payload_EN_VBatt_Pin|Payload_EN_5V_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, Payload_EN_12V_Pin|TailLight_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, Payload_EN_12V_Pin|TailLight_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, SPI_CS8_Pin|SPI_CS3_Pin|SPI_CS2_Pin|SPI_CS1_Pin
-                          |SPI_CS5_Pin|SPI_CS6_Pin|SPI_CS4_Pin, GPIO_PIN_RESET);
+                          |SPI_CS5_Pin|SPI_CS6_Pin|SPI_CS4_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SPI_CS7_GPIO_Port, SPI_CS7_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SPI_CS7_GPIO_Port, SPI_CS7_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pins : STATUS1_Pin STATUS2_Pin STATUS3_Pin ERROR0_Pin
                            ERROR1_Pin */
@@ -96,12 +96,12 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Payload_Fault_12V_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : Payload_EN_12V_Pin TailLight_EN_Pin */
-  GPIO_InitStruct.Pin = Payload_EN_12V_Pin|TailLight_EN_Pin;
+  /*Configure GPIO pin : Payload_EN_12V_Pin */
+  GPIO_InitStruct.Pin = Payload_EN_12V_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(Payload_EN_12V_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Payload_Fault_5V_Pin */
   GPIO_InitStruct.Pin = Payload_Fault_5V_Pin;
@@ -117,6 +117,13 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TailLight_Pin */
+  GPIO_InitStruct.Pin = TailLight_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(TailLight_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SPI_CS7_Pin */
   GPIO_InitStruct.Pin = SPI_CS7_Pin;
