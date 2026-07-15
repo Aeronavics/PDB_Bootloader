@@ -50,6 +50,13 @@ bool first_fire;
  */
 int main(void)
 {
+    /* Bring up HAL and the system clock before the boot decision so that the
+       CRC validation inside Boot() runs at the full system clock rather than the
+       slow reset clock. Boot() calls deinitEverything() before jumping, so this
+       early init is safely undone on the boot path. */
+    HAL_Init();
+    SystemClock_Config();
+
     //Check we are meant to go into bootloader mode
     //    volatile uint8_t *param_values = (volatile uint8_t *)(RAM_BOOTLOADER_ACTION_LOCATION);
     //Also check we have had an actual crash
@@ -67,19 +74,21 @@ int main(void)
     {
         //overwrite
         bootloader_info_location = 0;
-        Boot();
+        //deliberate boot request (app reboot / end of BootDelay): vector-check
+        //fallback allowed so debugger-flashed images boot too
+        Boot(false);
     }
     else
     {
-        //we default to booting.
-        Boot();
+        //cold power-on: only jump straight in if a finalised CAN-update record
+        //PROVES the image. Otherwise run the bootloader, which gives a ~5 s CAN
+        //window (BootDelay) before booting - the recovery path for a board whose
+        //app looks plausible but is actually corrupt.
+        Boot(true);
     }
 
     Libcanard_module::get_driver().set_name("dfu.aeronavics.PDB");
-    HAL_Init();
-
-    /* Configure the system clock to 72 MHz */
-    SystemClock_Config();
+    /* HAL_Init()/SystemClock_Config() already ran at the top of main(). */
     MX_GPIO_Init();
 
     MX_TIM2_Init();
@@ -152,7 +161,8 @@ int main(void)
             {
                 if (drivers[i] != nullptr) drivers[i]->sync_update_1Hz();
             }
-            HAL_GPIO_TogglePin(STATUS3_GPIO_Port, STATUS3_Pin);
+            /* Heartbeat moved to HAL_TIM_PeriodElapsedCallback (TIM2) so it
+               keeps running when this loop is blocked. */
 
             bool are_drivers_init = false;
             bool are_drivers_normal = false;
@@ -312,6 +322,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim)
         }
         run_sloppy_100hz = true;
 
+        /* Heartbeat LED, driven from this timer interrupt rather than the main
+           loop's 1 Hz task, so it keeps flashing even when the main loop is
+           blocked - e.g. waiting in dynamic node ID allocation with no allocator
+           or a dead bus, which previously froze the LED and made a healthy board
+           look bricked. Slow toggle (1 Hz) once the CAN driver is up; fast
+           toggle (5 Hz) while it is still initialising, so "alive but waiting
+           for the bus" is visually distinct from "running". */
+        uint32_t heartbeat_period =
+                (Libcanard_module::get_driver().get_state() == DRIVER_STATE_NORMAL) ? 100 : 20;
+        if (counter % heartbeat_period == 0)
+        {
+            HAL_GPIO_TogglePin(STATUS3_GPIO_Port, STATUS3_Pin);
+        }
     }
 }
 

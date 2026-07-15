@@ -102,6 +102,134 @@ uint32_t FLASH_If_Erase(uint32_t start) {
     return FLASHIF_OK;
 }
 
+/* Firmware image validation -------------------------------------------------*/
+
+/* Validity record stored at FIRMWARE_INFO_ADDRESS (reserved flash page below the
+   application). Written only once a complete image has been downloaded, so a
+   power loss mid-update leaves the record absent and the board stays in the
+   bootloader on the next power cycle instead of jumping into a corrupt image. */
+typedef struct
+{
+    uint32_t magic;    /* FIRMWARE_INFO_MAGIC when a verified image is present */
+    uint32_t length;   /* application image length in bytes                    */
+    uint32_t crc;      /* Firmware_CRC32 over [FIRMWARE_APP_ADDRESS, +length)  */
+    uint32_t reserved; /* pad to a 64-bit doubleword                           */
+} FirmwareInfo;
+
+uint32_t Firmware_CRC32(const uint8_t *data, uint32_t length)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    for (uint32_t i = 0; i < length; i++)
+    {
+        crc ^= data[i];
+        for (uint8_t b = 0; b < 8; b++)
+        {
+            uint32_t mask = (uint32_t)(-(int32_t)(crc & 1u));
+            crc = (crc >> 1) ^ (0xEDB88420u & mask);
+        }
+    }
+    return ~crc;
+}
+
+/* Legacy check: the application's initial stack pointer points into SRAM. Cheap,
+   but only proves the first word looks plausible - not that the whole image is
+   intact. Used as the fallback for images with no validity record (debugger
+   flash). */
+static bool app_vector_looks_valid(void)
+{
+    return ((*(const volatile uint32_t *)FIRMWARE_APP_ADDRESS) & 0x2FFE0000u) == 0x20000000u;
+}
+
+bool Firmware_Image_Confirmed(void)
+{
+    const FirmwareInfo *info = (const FirmwareInfo *)FIRMWARE_INFO_ADDRESS;
+
+    /* Only a finalised CAN update writes this record, so a match means the whole
+       image was received and its CRC verified - a PROVEN image, not merely a
+       plausible one. */
+    if (info->magic != FIRMWARE_INFO_MAGIC)
+    {
+        return false;
+    }
+    if ((info->length == 0) ||
+        (info->length > (USER_FLASH_BANK1_END_ADDRESS - FIRMWARE_APP_ADDRESS)))
+    {
+        return false;
+    }
+    if (!app_vector_looks_valid())
+    {
+        return false;
+    }
+    return Firmware_CRC32((const uint8_t *)FIRMWARE_APP_ADDRESS, info->length) == info->crc;
+}
+
+bool Firmware_Image_Valid(void)
+{
+    const FirmwareInfo *info = (const FirmwareInfo *)FIRMWARE_INFO_ADDRESS;
+
+    /* A CAN update that started but never finished - never boot it. */
+    if (info->magic == FIRMWARE_INFO_INPROGRESS)
+    {
+        return false;
+    }
+
+    /* No validity record at all (erased page). This is a debugger/ST-Link flashed
+       image, or a board that predates this scheme - fall back to the legacy
+       vector-table check so those can still be booted. */
+    if (info->magic != FIRMWARE_INFO_MAGIC)
+    {
+        return app_vector_looks_valid();
+    }
+
+    return Firmware_Image_Confirmed();
+}
+
+/* Writes the record page. Returns false if the erase or the write fails - most
+   likely because the page is write protected. The record lives in the
+   bootloader's own flash region, which is exactly the region a project may choose
+   to WRP, so this must never fail silently: without the record the boot check
+   degrades to the legacy vector-table test and the anti-brick protection is gone. */
+static bool firmware_info_store(const FirmwareInfo *info)
+{
+    if (FLASH_If_Erase_Page(FIRMWARE_INFO_ADDRESS) != FLASHIF_OK)
+    {
+        return false;
+    }
+    /* FLASH_If_Write reads back and compares each word it programs, so an OK
+       return also confirms the record actually landed in flash. */
+    if (FLASH_If_Write(FIRMWARE_INFO_ADDRESS, (uint32_t *)info, sizeof(*info) / 4) != FLASHIF_OK)
+    {
+        return false;
+    }
+    return true;
+}
+
+bool Firmware_Image_Invalidate(void)
+{
+    /* Mark an update as in progress. This is written *before* the application is
+       erased, so if the update is interrupted the record stays INPROGRESS and the
+       board refuses to boot the half-written image (it stays in the bootloader,
+       recoverable, across power cycles). */
+    FirmwareInfo info __attribute__((aligned(8)));
+    info.magic = FIRMWARE_INFO_INPROGRESS;
+    info.length = 0xFFFFFFFFu;
+    info.crc = 0xFFFFFFFFu;
+    info.reserved = 0xFFFFFFFFu;
+
+    return firmware_info_store(&info);
+}
+
+bool Firmware_Image_Finalize(uint32_t length)
+{
+    FirmwareInfo info __attribute__((aligned(8)));
+    info.magic = FIRMWARE_INFO_MAGIC;
+    info.length = length;
+    info.crc = Firmware_CRC32((const uint8_t *)FIRMWARE_APP_ADDRESS, length);
+    info.reserved = 0xFFFFFFFFu;
+
+    return firmware_info_store(&info);
+}
+
 /* Public functions ---------------------------------------------------------*/
 
 /**

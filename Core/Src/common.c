@@ -21,7 +21,7 @@ void Set_Boot(void) {
     *param_values = RAM_FASTBOOT_BYTE;
 }
 
-void Boot(void) {
+void Boot(bool require_confirmed) {
 //    if (((*(__IO uint32_t*) (APPLICATION_ADDRESS + APPLICATION_OFFSET)) & 0x2FFE0000) == 0x20000000) {
 //
 //        pFunction JumpToApplication;
@@ -33,7 +33,17 @@ void Boot(void) {
 //        __set_MSP(*(__IO uint32_t*) (APPLICATION_ADDRESS + APPLICATION_OFFSET));
 //        JumpToApplication();
 //    }
-	if (((*(__IO uint32_t*) (APPLICATION_ADDRESS)) & 0x2FFE0000) == 0x20000000) {
+	/* require_confirmed selects the standard of proof:
+	   - true  (cold power-on): jump only if a finalised CAN-update record proves
+	     the image. A merely plausible image (valid-looking vector, no record -
+	     e.g. the remains of an interrupted update, or a debugger flash) does NOT
+	     jump; the bootloader runs instead and, via its BootDelay state, gives a
+	     ~5 s CAN window before deliberately booting. That window is what lets a
+	     board with a corrupt-but-plausible app be recovered over CAN instead of
+	     needing SWD.
+	   - false (deliberate boot request via Set_Boot/FASTBOOT): the vector-check
+	     fallback is allowed, so debugger-flashed apps still boot. */
+	if (require_confirmed ? Firmware_Image_Confirmed() : Firmware_Image_Valid()) {
 		const JumpStruct* vector_p = (JumpStruct*)(APPLICATION_ADDRESS);
 
 		deinitEverything();
@@ -52,6 +62,16 @@ void deinitEverything(void)
 	HAL_UART_MspDeInit(&huart1);
 
 	HAL_CAN_MspDeInit(&hcan);
+
+	/* Return the clock tree to its reset state (SYSCLK on MSI/HSI, PLL off,
+	   prescalers cleared) before jumping. Since HAL_Init()/SystemClock_Config()
+	   moved ahead of the boot decision, the application would otherwise inherit
+	   a live PLL - and a CubeMX app's SystemClock_Config() can refuse to
+	   reconfigure an active PLL, sending the app into Error_Handler before it
+	   ever reaches main() proper (observed on the Loadcell app: stuck spinning
+	   at 4 MHz with the PLL locked but never selected). Must run before
+	   HAL_DeInit()/SysTick shutdown because it uses HAL_GetTick() timeouts. */
+	HAL_RCC_DeInit();
 
 	HAL_DeInit();
 	SysTick->CTRL = 0;

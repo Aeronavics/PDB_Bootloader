@@ -18,6 +18,7 @@ extern "C" {
 #include "can.h"
 #include "gpio.h"
 #include "tim.h"
+#include "flash_if.h"
 #include <stdbool.h>
 
 
@@ -77,7 +78,7 @@ extern "C" {
 #define RAM_DO_BOOTLOADER_BYTE   0x22 //if this is set, it indicates we should deliberatlty go into bootloader
     typedef void (*pFunction)(void);
     /* Exported functions ------------------------------------------------------- */
-    void Boot(void);
+    void Boot(bool require_confirmed);
     void Set_Boot(void);
     void Int2Str(uint8_t *p_str, uint32_t intnum);
     uint32_t Str2Int(uint8_t *inputstr, uint32_t *intnum);

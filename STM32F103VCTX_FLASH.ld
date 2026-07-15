@@ -45,7 +45,11 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000100,   LENGTH = 48K-256
-  FLASH    (rx)   : ORIGIN = 0x8000000,    LENGTH = 40K
+  /* 38K, not the full 40K: the top 2K page (0x08009800, page 19) is reserved for
+     the bootloader firmware-validity record (FIRMWARE_INFO_ADDRESS in flash_if.h).
+     It sits inside the bootloader's own region, below the app parameter pages, so
+     no hosted firmware can ever collide with it. Do not raise back to 40K. */
+  FLASH    (rx)   : ORIGIN = 0x8000000,    LENGTH = 38K
 }
 
 PROVIDE(bootloader_info_location = 0x20000000);

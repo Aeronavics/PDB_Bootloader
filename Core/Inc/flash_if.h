@@ -182,7 +182,11 @@ extern "C" {
     /* Notable Flash addresses */
 #define USER_FLASH_BANK1_START_ADDRESS  0x08000000
     //#define USER_FLASH_BANK2_START_ADDRESS  0x08080000
-#define USER_FLASH_BANK1_END_ADDRESS    0x0807FFFF
+/* 256 KB parts (STM32L432KC / G474RC / F103VC): flash is 0x08000000-0x0803FFFF.
+   This previously read 0x0807FFFF (512 KB), which made FLASH_If_Erase() compute
+   231 pages from APPLICATION_ADDRESS on a 128-page device and ask HAL to erase
+   pages that do not exist (hit by the UART/ymodem upload path). */
+#define USER_FLASH_BANK1_END_ADDRESS    0x0803FFFF
     //#define USER_FLASH_BANK2_END_ADDRESS    FLASH_BANK2_END
 
     /* Define the user application size */
@@ -206,6 +210,25 @@ extern "C" {
     /* Compute the mask to test if the Flash memory, where the user program will be
       loaded, is write protected */
 #define FLASH_PROTECTED_SECTORS       (~(uint32_t)((1 << FLASH_SECTOR_NUMBER) - 1))
+    /* Firmware image validation -------------------------------------------------*/
+    /* Start address of the application image (must match APPLICATION_ADDRESS and
+       the module's FLASH_START_ADDRESS). */
+#define FIRMWARE_APP_ADDRESS      ((uint32_t)0x0800C800)
+    /* Reserved flash page for the image validity record (persists across power
+       cycles). Page 19 (0x08009800) is the top 2K page of the bootloader's own
+       linked region, which the linker script caps at 38K to keep it free. It is
+       below the shared CAN/MAVLink parameter pages (20-24) and far below any
+       hosted application's code (page 25+), so no firmware can ever collide with
+       it - unlike the top of flash, which apps may grow into. */
+#define FIRMWARE_INFO_ADDRESS     ((uint32_t)0x08009800)
+    /* magic == FIRMWARE_INFO_MAGIC     : a full image was downloaded and CRC-verified.
+       magic == FIRMWARE_INFO_INPROGRESS: a CAN update started but has not completed.
+       anything else (e.g. 0xFFFFFFFF)  : no record - e.g. a debugger/ST-Link flash.
+       An interrupted CAN update leaves INPROGRESS and is never booted; a debugger
+       image (no record) still boots on the legacy vector-table check. */
+#define FIRMWARE_INFO_MAGIC       ((uint32_t)0xA5B6C7D8)
+#define FIRMWARE_INFO_INPROGRESS  ((uint32_t)0xB4C3D2E1)
+
     /* Exported functions ------------------------------------------------------- */
     void FLASH_If_Init(void);
     uint32_t FLASH_If_Erase(uint32_t StartSector);
@@ -213,6 +236,26 @@ extern "C" {
     uint32_t FLASH_If_GetWriteProtectionStatus(void);
     uint32_t FLASH_If_Write(uint32_t destination, uint32_t *p_source, uint32_t length);
     uint32_t FLASH_If_WriteProtectionConfig(uint32_t protectionstate);
+
+    /* CRC32 (reflected, poly 0xEDB88420) over an arbitrary buffer. */
+    uint32_t Firmware_CRC32(const uint8_t *data, uint32_t length);
+    /* True only if a complete, CRC-verified application image is present.
+       Falls back to the legacy vector-table check when no record exists
+       (debugger-flashed images). Safe to call before HAL init; no writes. */
+    bool Firmware_Image_Valid(void);
+    /* True only if a finalised CAN-update record is present AND its CRC matches.
+       Never falls back to the vector check, so it distinguishes a PROVEN image
+       from a merely plausible one (e.g. the remains of an interrupted update). */
+    bool Firmware_Image_Confirmed(void);
+    /* Mark an update as in progress so a partial/failed update can never boot.
+       Call at the start of every update attempt. Returns false if the record page
+       could not be written (e.g. it is write protected) - the caller must treat
+       that as the anti-brick protection being unavailable, not ignore it. */
+    bool Firmware_Image_Invalidate(void);
+    /* Compute and persist the validity record for a freshly downloaded image
+       of the given byte length. Call only after the whole image is flashed.
+       Returns false if the record could not be written. */
+    bool Firmware_Image_Finalize(uint32_t length);
 
 #ifdef __cplusplus
 }
