@@ -343,6 +343,21 @@ uint64_t driverhost_get_monotonic_time_us(void)
     /*
      *     the counter interrupts every 10000 microseconds, so we can extrapolate this and add where we currently are up to in the timer
      */
+    /* Guard the handle before dereferencing it. libcanard calls this for its
+       timestamps, and it can run before MX_TIM2_Init() has pointed htim2.Instance
+       at TIM2 - main() does HAL_Init()/SystemClock_Config()/Boot() and touches the
+       driver singleton first. After a POWER-ON reset htim2 still holds raw SRAM
+       garbage (it is only zeroed once .bss is cleared, and SRAM powers up with
+       arbitrary contents, NOT zeros), so the handle is non-NULL but invalid and
+       __HAL_TIM_GET_COUNTER dereferences it -> precise bus error -> HardFault ->
+       the board wedges in the fault handler with the heartbeat dead (the fault
+       handler outranks the TIM2 interrupt). This survived a soft reset only because
+       the stale RAM happened to be benign, which is why it looked power-cycle
+       specific. Fall back to the coarse 10 ms tick until the timer is really up. */
+    if (htim2.Instance != TIM2)
+    {
+        return (uint64_t) (counter * 10000);
+    }
     return (uint64_t) ((counter * 10000) + (uint64_t) __HAL_TIM_GET_COUNTER(&htim2));
 }
 
