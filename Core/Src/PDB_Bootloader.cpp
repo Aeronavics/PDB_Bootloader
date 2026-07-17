@@ -7,6 +7,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "PDB_Bootloader.hpp"
+#include "firmware_descriptor.hpp"
 
 bool is_timeout_relevant;
 bool boot_to_application;
@@ -88,6 +89,8 @@ int main(void)
     }
 
     Libcanard_module::get_driver().set_name("dfu.aeronavics.PDB");
+    // Single-board bootloader: only ever accept PDB firmware, first upload included.
+    Libcanard_module::get_driver().set_expected_firmware_board_id(BOARD_ID_PDB);
     /* HAL_Init()/SystemClock_Config() already ran at the top of main(). */
     MX_GPIO_Init();
 
