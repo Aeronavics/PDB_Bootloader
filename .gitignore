@@ -47,3 +47,7 @@ Release
 
 # ignore generated git hash file
 gitcommit.h
+
+# IDE-local state, regenerated every build
+.settings/language.settings.xml
+.settings/stm32cubeide.project.prefs
