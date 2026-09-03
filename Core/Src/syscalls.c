@@ -174,3 +174,11 @@ int _execve(char *name, char **argv, char **env)
   errno = ENOMEM;
   return -1;
 }
+
+int _gettimeofday(struct timeval *tv, void *tzvp)
+{
+  (void)tv;
+  (void)tzvp;
+  errno = ENOSYS;
+  return -1;
+}
